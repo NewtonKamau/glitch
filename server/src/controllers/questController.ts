@@ -5,7 +5,7 @@ import { AuthRequest } from '../middleware/auth';
 const QUEST_EXPIRY_HOURS = 3;
 
 export const createQuest = async (req: AuthRequest, res: Response) => {
-  const { title, description, latitude, longitude, category, maxParticipants } = req.body;
+  const { title, description, latitude, longitude, category, maxParticipants, videoUrl } = req.body;
 
   if (!title || latitude === undefined || longitude === undefined) {
     return res.status(400).json({ error: 'Title, latitude, and longitude are required' });
@@ -32,10 +32,10 @@ export const createQuest = async (req: AuthRequest, res: Response) => {
     const expiresAt = new Date(Date.now() + QUEST_EXPIRY_HOURS * 60 * 60 * 1000);
 
     const result = await pool.query(
-      `INSERT INTO quests (title, description, creator_id, latitude, longitude, category, max_participants, expires_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      `INSERT INTO quests (title, description, creator_id, latitude, longitude, video_url, category, max_participants, expires_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
        RETURNING *`,
-      [title, description || '', req.userId, latitude, longitude, category || 'general', maxParticipants || 10, expiresAt]
+      [title, description || '', req.userId, latitude, longitude, videoUrl || null, category || 'general', maxParticipants || 10, expiresAt]
     );
 
     // Increment user's quest count

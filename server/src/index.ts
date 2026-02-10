@@ -3,6 +3,7 @@ import { createServer } from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import path from 'path';
 import { checkConnection } from './db';
 import { runMigrations } from './models/migrations';
 import { verifyToken } from './middleware/auth';
@@ -11,6 +12,7 @@ import { verifyToken } from './middleware/auth';
 import authRoutes from './routes/auth';
 import questRoutes from './routes/quests';
 import chatRoutes from './routes/chat';
+import uploadRoutes from './routes/upload';
 
 dotenv.config();
 
@@ -28,6 +30,9 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
+// Serve uploaded files locally
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+
 // API Routes
 app.get('/', (_req, res) => {
   res.json({ status: 'GLITCH API is running', version: '1.0.0' });
@@ -36,6 +41,7 @@ app.get('/', (_req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/quests', questRoutes);
 app.use('/api/chat', chatRoutes);
+app.use('/api/upload', uploadRoutes);
 
 // Socket.IO real-time events
 io.use((socket, next) => {

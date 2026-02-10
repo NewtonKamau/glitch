@@ -8,7 +8,8 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native';
-import { api } from '../services/api';
+import { Video, ResizeMode } from 'expo-av';
+import { api, BASE_URL } from '../services/api';
 
 interface QuestDetailScreenProps {
   token: string;
@@ -134,6 +135,20 @@ export default function QuestDetailScreen({
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
+        {/* Quest Video */}
+        {quest.video_url && (
+          <View style={styles.videoSection}>
+            <Video
+              source={{ uri: quest.video_url.startsWith('http') ? quest.video_url : `${BASE_URL}${quest.video_url}` }}
+              style={styles.questVideo}
+              resizeMode={ResizeMode.COVER}
+              shouldPlay={false}
+              isLooping={false}
+              useNativeControls
+            />
+          </View>
+        )}
+
         {/* Quest Hero */}
         <View style={styles.heroSection}>
           <Text style={styles.heroEmoji}>{getCategoryEmoji(quest.category)}</Text>
@@ -257,6 +272,18 @@ const styles = StyleSheet.create({
   content: {
     padding: 20,
     paddingBottom: 100,
+  },
+  videoSection: {
+    borderRadius: 16,
+    overflow: 'hidden',
+    marginBottom: 16,
+    backgroundColor: '#1a1a2e',
+    borderWidth: 1,
+    borderColor: '#2a2a3e',
+  },
+  questVideo: {
+    width: '100%',
+    height: 220,
   },
   heroSection: {
     alignItems: 'center',

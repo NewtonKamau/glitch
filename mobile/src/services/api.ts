@@ -1,4 +1,5 @@
 const API_URL = 'http://localhost:3000/api';
+export const BASE_URL = 'http://localhost:3000';
 
 export const api = {
   // Auth
@@ -34,6 +35,7 @@ export const api = {
     latitude: number;
     longitude: number;
     category?: string;
+    videoUrl?: string;
   }) => {
     const res = await fetch(`${API_URL}/quests`, {
       method: 'POST',
@@ -94,6 +96,36 @@ export const api = {
       },
       body: JSON.stringify({ message }),
     });
+    return res.json();
+  },
+
+  // Video Upload
+  uploadVideo: async (token: string, videoUri: string): Promise<{
+    videoUrl?: string;
+    videoKey?: string;
+    error?: string;
+  }> => {
+    const formData = new FormData();
+
+    // Get filename and type from URI
+    const uriParts = videoUri.split('.');
+    const fileType = uriParts[uriParts.length - 1];
+
+    formData.append('video', {
+      uri: videoUri,
+      name: `quest_video.${fileType}`,
+      type: `video/${fileType === 'mov' ? 'quicktime' : fileType}`,
+    } as any);
+
+    const res = await fetch(`${API_URL}/upload/video`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'multipart/form-data',
+      },
+      body: formData,
+    });
+
     return res.json();
   },
 };
