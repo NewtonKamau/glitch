@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -8,7 +8,9 @@ import {
   RefreshControl,
   ActivityIndicator,
   ScrollView,
+  Dimensions,
 } from 'react-native';
+import MapView, { Marker, Callout, PROVIDER_DEFAULT, Region } from 'react-native-maps';
 import { api } from '../services/api';
 import { useLocation } from '../hooks/useLocation';
 
@@ -26,17 +28,21 @@ interface QuestItem {
   category: string;
   participant_count: string;
   max_participants: number;
+  latitude: number;
+  longitude: number;
   distance_km: number;
   expires_at: string;
   created_at: string;
 }
 
-export default function MapScreen({ token, onQuestSelect, onCreateQuest }: MapScreenProps) {
+export default function ExploreScreen({ token, onQuestSelect, onCreateQuest }: MapScreenProps) {
   const [quests, setQuests] = useState<QuestItem[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState('all');
-  const { location, loading: locationLoading, error: locationError, refreshLocation } = useLocation(true);
+  const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
+  const { location, loading: locationLoading, error: locationError } = useLocation(true);
+  const mapRef = useRef<MapView>(null);
 
   const CATEGORIES = [
     { key: 'all', label: 'All' },
@@ -57,7 +63,7 @@ export default function MapScreen({ token, onQuestSelect, onCreateQuest }: MapSc
         location.latitude,
         location.longitude,
         50,
-        selectedCategory // Pass selected category
+        selectedCategory
       );
       if (result.quests) {
         setQuests(result.quests);
@@ -72,10 +78,22 @@ export default function MapScreen({ token, onQuestSelect, onCreateQuest }: MapSc
 
   useEffect(() => {
     if (location) {
-      setLoading(true); // Show loading when category changes
+      setLoading(true);
       fetchQuests();
     }
   }, [location, selectedCategory]);
+
+  // Center map when location is found or view mode changes to map
+  useEffect(() => {
+    if (viewMode === 'map' && location && mapRef.current) {
+      mapRef.current.animateToRegion({
+        latitude: location.latitude,
+        longitude: location.longitude,
+        latitudeDelta: 0.05,
+        longitudeDelta: 0.05,
+      }, 1000);
+    }
+  }, [viewMode, location]);
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -93,13 +111,8 @@ export default function MapScreen({ token, onQuestSelect, onCreateQuest }: MapSc
 
   const getCategoryEmoji = (category: string) => {
     const map: Record<string, string> = {
-      foodie: '🍕',
-      art: '🎨',
-      music: '🎵',
-      chill: '😎',
-      adventure: '🏔️',
-      sport: '⚽',
-      general: '✨',
+      foodie: '🍕', art: '🎨', music: '🎵', chill: '😎',
+      adventure: '🏔️', sport: '⚽', general: '✨',
     };
     return map[category] || '✨';
   };
@@ -139,18 +152,27 @@ export default function MapScreen({ token, onQuestSelect, onCreateQuest }: MapSc
   return (
     <View style={styles.container}>
       <View style={styles.headerBar}>
-        <View>
+        <View style={styles.headerLeft}>
           <Text style={styles.headerTitle}>Nearby Quests</Text>
           {location && (
             <Text style={styles.locationIndicator}>
               📍 {location.latitude.toFixed(4)}, {location.longitude.toFixed(4)}
-              {locationError ? ' (approximate)' : ''}
             </Text>
           )}
         </View>
-        <TouchableOpacity style={styles.createButton} onPress={onCreateQuest}>
-          <Text style={styles.createButtonText}>+ Create</Text>
-        </TouchableOpacity>
+        <View style={styles.headerRight}>
+          <TouchableOpacity
+            style={styles.modeButton}
+            onPress={() => setViewMode(viewMode === 'list' ? 'map' : 'list')}
+          >
+            <Text style={styles.modeButtonText}>
+              {viewMode === 'list' ? '🗺️ Map' : '📜 List'}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.createButton} onPress={onCreateQuest}>
+            <Text style={styles.createButtonText}>+</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Category Filter */}
@@ -185,29 +207,71 @@ export default function MapScreen({ token, onQuestSelect, onCreateQuest }: MapSc
             {locationLoading ? 'Getting your location...' : 'Loading quests...'}
           </Text>
         </View>
-      ) : quests.length === 0 ? (
-        <View style={styles.emptyContainer}>
-          <Text style={styles.emptyEmoji}>🔍</Text>
-          <Text style={styles.emptyTitle}>No quests nearby</Text>
-          <Text style={styles.emptyText}>Be the first to create one!</Text>
-          <TouchableOpacity style={styles.emptyButton} onPress={onCreateQuest}>
-            <Text style={styles.emptyButtonText}>Create a Quest</Text>
-          </TouchableOpacity>
-        </View>
+      ) : viewMode === 'list' ? (
+        quests.length === 0 ? (
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyEmoji}>🔍</Text>
+            <Text style={styles.emptyTitle}>No quests nearby</Text>
+            <Text style={styles.emptyText}>Be the first to create one!</Text>
+            <TouchableOpacity style={styles.emptyButton} onPress={onCreateQuest}>
+              <Text style={styles.emptyButtonText}>Create a Quest</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <FlatList
+            data={quests}
+            renderItem={renderQuest}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={styles.listContent}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                tintColor="#a855f7"
+              />
+            }
+          />
+        )
       ) : (
-        <FlatList
-          data={quests}
-          renderItem={renderQuest}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.listContent}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              tintColor="#a855f7"
-            />
-          }
-        />
+        <View style={styles.mapContainer}>
+          {location && (
+            <MapView
+              ref={mapRef}
+              style={styles.map}
+              provider={PROVIDER_DEFAULT}
+              initialRegion={{
+                latitude: location.latitude,
+                longitude: location.longitude,
+                latitudeDelta: 0.05,
+                longitudeDelta: 0.05,
+              }}
+              showsUserLocation={true}
+              userInterfaceStyle="dark"
+            >
+              {quests.map((quest) => (
+                <Marker
+                  key={quest.id}
+                  coordinate={{
+                    latitude: quest.latitude,
+                    longitude: quest.longitude,
+                  }}
+                  title={quest.title}
+                  description={quest.description || 'No description'}
+                >
+                  <View style={styles.markerContainer}>
+                    <Text style={styles.markerEmoji}>{getCategoryEmoji(quest.category)}</Text>
+                  </View>
+                  <Callout onPress={() => onQuestSelect(quest.id)}>
+                    <View style={styles.calloutContainer}>
+                      <Text style={styles.calloutTitle}>{quest.title}</Text>
+                      <Text style={styles.calloutSubtitle}>Tap to view details</Text>
+                    </View>
+                  </Callout>
+                </Marker>
+              ))}
+            </MapView>
+          )}
+        </View>
       )}
     </View>
   );
@@ -226,6 +290,51 @@ const styles = StyleSheet.create({
     paddingTop: 60,
     paddingBottom: 16,
     backgroundColor: '#0a0a0f',
+  },
+  headerLeft: {
+    flex: 1,
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#fff',
+  },
+  locationIndicator: {
+    fontSize: 11,
+    color: '#666',
+    marginTop: 4,
+  },
+  modeButton: {
+    backgroundColor: '#1a1a2e',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#2a2a3e',
+  },
+  modeButtonText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  createButton: {
+    backgroundColor: '#a855f7',
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  createButtonText: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: 20,
+    marginTop: -2,
   },
   filterContainer: {
     backgroundColor: '#0a0a0f',
@@ -256,27 +365,6 @@ const styles = StyleSheet.create({
   },
   filterTextActive: {
     color: '#fff',
-  },
-  headerTitle: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: '#fff',
-  },
-  locationIndicator: {
-    fontSize: 11,
-    color: '#666',
-    marginTop: 4,
-  },
-  createButton: {
-    backgroundColor: '#a855f7',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 20,
-  },
-  createButtonText: {
-    color: '#fff',
-    fontWeight: '700',
-    fontSize: 14,
   },
   listContent: {
     padding: 16,
@@ -375,5 +463,44 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: '700',
     fontSize: 16,
+  },
+  mapContainer: {
+    flex: 1,
+    overflow: 'hidden',
+  },
+  map: {
+    width: '100%',
+    height: '100%',
+  },
+  markerContainer: {
+    backgroundColor: '#1a1a2e',
+    padding: 6,
+    borderRadius: 100,
+    borderWidth: 2,
+    borderColor: '#a855f7',
+    elevation: 4,
+    shadowColor: '#a855f7',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.5,
+    shadowRadius: 4,
+  },
+  markerEmoji: {
+    fontSize: 24,
+  },
+  calloutContainer: {
+    width: 160,
+    padding: 8,
+    alignItems: 'center',
+  },
+  calloutTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    marginBottom: 4,
+    textAlign: 'center',
+  },
+  calloutSubtitle: {
+    fontSize: 12,
+    color: '#a855f7',
+    textAlign: 'center',
   },
 });
