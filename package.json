@@ -1,0 +1,16 @@
+{
+  "name": "glitch",
+  "version": "1.0.0",
+  "description": "GLITCH: Real-time Quest Platform",
+  "main": "index.js",
+  "scripts": {
+    "server": "cd server && npm run dev",
+    "mobile": "cd mobile && npm start",
+    "db:up": "docker-compose up -d",
+    "db:down": "docker-compose down"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs"
+}
