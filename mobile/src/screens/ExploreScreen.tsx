@@ -6,9 +6,10 @@ import {
   FlatList,
   TouchableOpacity,
   RefreshControl,
-  Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { api } from '../services/api';
+import { useLocation } from '../hooks/useLocation';
 
 interface MapScreenProps {
   token: string;
@@ -33,11 +34,17 @@ export default function MapScreen({ token, onQuestSelect, onCreateQuest }: MapSc
   const [quests, setQuests] = useState<QuestItem[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
+  const { location, loading: locationLoading, error: locationError, refreshLocation } = useLocation(true);
 
   const fetchQuests = async () => {
+    if (!location) return;
     try {
-      // For now, use a default location (Nairobi). In production, use device location.
-      const result = await api.getNearbyQuests(token, -1.2921, 36.8219, 50);
+      const result = await api.getNearbyQuests(
+        token,
+        location.latitude,
+        location.longitude,
+        50
+      );
       if (result.quests) {
         setQuests(result.quests);
       }
@@ -50,8 +57,10 @@ export default function MapScreen({ token, onQuestSelect, onCreateQuest }: MapSc
   };
 
   useEffect(() => {
-    fetchQuests();
-  }, []);
+    if (location) {
+      fetchQuests();
+    }
+  }, [location]);
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -115,15 +124,26 @@ export default function MapScreen({ token, onQuestSelect, onCreateQuest }: MapSc
   return (
     <View style={styles.container}>
       <View style={styles.headerBar}>
-        <Text style={styles.headerTitle}>Nearby Quests</Text>
+        <View>
+          <Text style={styles.headerTitle}>Nearby Quests</Text>
+          {location && (
+            <Text style={styles.locationIndicator}>
+              📍 {location.latitude.toFixed(4)}, {location.longitude.toFixed(4)}
+              {locationError ? ' (approximate)' : ''}
+            </Text>
+          )}
+        </View>
         <TouchableOpacity style={styles.createButton} onPress={onCreateQuest}>
           <Text style={styles.createButtonText}>+ Create</Text>
         </TouchableOpacity>
       </View>
 
-      {loading ? (
+      {locationLoading || loading ? (
         <View style={styles.emptyContainer}>
-          <Text style={styles.emptyText}>Loading quests...</Text>
+          <ActivityIndicator size="large" color="#a855f7" />
+          <Text style={styles.emptyText}>
+            {locationLoading ? 'Getting your location...' : 'Loading quests...'}
+          </Text>
         </View>
       ) : quests.length === 0 ? (
         <View style={styles.emptyContainer}>
@@ -173,6 +193,11 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: '800',
     color: '#fff',
+  },
+  locationIndicator: {
+    fontSize: 11,
+    color: '#666',
+    marginTop: 4,
   },
   createButton: {
     backgroundColor: '#a855f7',

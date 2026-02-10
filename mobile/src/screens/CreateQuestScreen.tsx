@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { api } from '../services/api';
+import { useLocation } from '../hooks/useLocation';
 
 interface CreateQuestScreenProps {
   token: string;
@@ -32,6 +33,7 @@ export default function CreateQuestScreen({ token, onBack, onCreated }: CreateQu
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState('general');
   const [loading, setLoading] = useState(false);
+  const { location, loading: locationLoading } = useLocation();
 
   const handleCreate = async () => {
     if (!title.trim()) {
@@ -39,14 +41,18 @@ export default function CreateQuestScreen({ token, onBack, onCreated }: CreateQu
       return;
     }
 
+    if (!location) {
+      Alert.alert('Location Required', 'We need your location to pin the quest on the map. Please enable location services.');
+      return;
+    }
+
     setLoading(true);
     try {
-      // Use default location for now (Nairobi). In production, use device GPS.
       const result = await api.createQuest(token, {
         title: title.trim(),
         description: description.trim(),
-        latitude: -1.2921,
-        longitude: 36.8219,
+        latitude: location.latitude,
+        longitude: location.longitude,
         category,
       });
 
@@ -125,7 +131,16 @@ export default function CreateQuestScreen({ token, onBack, onCreated }: CreateQu
             • Your quest will be live for <Text style={styles.infoBold}>3 hours</Text>
           </Text>
           <Text style={styles.infoText}>
-            • Location will be set to your <Text style={styles.infoBold}>current position</Text>
+            • Location:{' '}
+            {locationLoading ? (
+              <Text style={styles.infoBold}>Getting GPS...</Text>
+            ) : location ? (
+              <Text style={styles.infoBold}>
+                📍 {location.latitude.toFixed(4)}, {location.longitude.toFixed(4)}
+              </Text>
+            ) : (
+              <Text style={{ color: '#ff4444' }}>Not available</Text>
+            )}
           </Text>
           <Text style={styles.infoText}>
             • Up to <Text style={styles.infoBold}>10 people</Text> can join
@@ -133,12 +148,14 @@ export default function CreateQuestScreen({ token, onBack, onCreated }: CreateQu
         </View>
 
         <TouchableOpacity
-          style={[styles.submitButton, loading && styles.submitButtonDisabled]}
+          style={[styles.submitButton, (loading || locationLoading || !location) && styles.submitButtonDisabled]}
           onPress={handleCreate}
-          disabled={loading}
+          disabled={loading || locationLoading || !location}
         >
           {loading ? (
             <ActivityIndicator color="#fff" />
+          ) : locationLoading ? (
+            <Text style={styles.submitButtonText}>📍 Getting Location...</Text>
           ) : (
             <Text style={styles.submitButtonText}>🚀 Launch Quest</Text>
           )}
