@@ -49,7 +49,7 @@ export const createQuest = async (req: AuthRequest, res: Response) => {
 };
 
 export const getNearbyQuests = async (req: AuthRequest, res: Response) => {
-  const { lat, lng, radius = 5 } = req.query; // radius in km
+  const { lat, lng, radius = 5, category } = req.query; // radius in km
 
   if (!lat || !lng) {
     return res.status(400).json({ error: 'Latitude and longitude are required' });
@@ -58,8 +58,18 @@ export const getNearbyQuests = async (req: AuthRequest, res: Response) => {
   const latitude = parseFloat(lat as string);
   const longitude = parseFloat(lng as string);
   const radiusKm = parseFloat(radius as string);
+  const targetCategory = category as string;
 
   try {
+    const params: any[] = [latitude, longitude, radiusKm];
+    let categoryFilter = '';
+
+    // Only filter if category is provided and not 'all'
+    if (targetCategory && targetCategory !== 'all') {
+      categoryFilter = `AND q.category = $4`;
+      params.push(targetCategory);
+    }
+
     // Haversine formula to find quests within radius
     const result = await pool.query(
       `SELECT q.*, u.username as creator_username, u.avatar_url as creator_avatar,
@@ -73,6 +83,7 @@ export const getNearbyQuests = async (req: AuthRequest, res: Response) => {
        JOIN users u ON q.creator_id = u.id
        WHERE q.is_active = true
          AND q.expires_at > NOW()
+         ${categoryFilter}
          AND (6371 * acos(
                 cos(radians($1)) * cos(radians(q.latitude)) *
                 cos(radians(q.longitude) - radians($2)) +
@@ -80,7 +91,7 @@ export const getNearbyQuests = async (req: AuthRequest, res: Response) => {
               )) <= $3
        ORDER BY distance_km ASC
        LIMIT 50`,
-      [latitude, longitude, radiusKm]
+      params
     );
 
     return res.json({ quests: result.rows });

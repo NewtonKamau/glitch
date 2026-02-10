@@ -93,3 +93,19 @@ export const getProfile = async (req: AuthRequest, res: Response) => {
     return res.status(500).json({ error: 'Internal server error' });
   }
 };
+
+export const updatePushToken = async (req: AuthRequest, res: Response) => {
+  const { pushToken } = req.body;
+
+  if (!pushToken) {
+    return res.status(400).json({ error: 'Push token is required' });
+  }
+
+  try {
+    await pool.query('UPDATE users SET push_token = $1 WHERE id = $2', [pushToken, req.userId]);
+    return res.json({ message: 'Push token updated' });
+  } catch (err) {
+    console.error('Update push token error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};

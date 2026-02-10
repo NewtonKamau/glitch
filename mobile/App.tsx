@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import LoginScreen from './src/screens/LoginScreen';
 import RegisterScreen from './src/screens/RegisterScreen';
@@ -9,6 +10,11 @@ import CreateQuestScreen from './src/screens/CreateQuestScreen';
 import QuestDetailScreen from './src/screens/QuestDetailScreen';
 import ChatScreen from './src/screens/ChatScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
+import { api } from './src/services/api';
+import { usePushNotifications } from './src/hooks/usePushNotifications';
+
+const AUTH_TOKEN_KEY = '@glitch_token';
+const AUTH_USER_KEY = '@glitch_user';
 
 type Screen =
   | { name: 'login' }
@@ -24,6 +30,53 @@ export default function App() {
   const [user, setUser] = useState<any>(null);
   const [screen, setScreen] = useState<Screen>({ name: 'login' });
   const [screenHistory, setScreenHistory] = useState<Screen[]>([]);
+  const [initializing, setInitializing] = useState(true);
+
+  // Restore saved session on app launch
+  useEffect(() => {
+    const restoreSession = async () => {
+      try {
+        const savedToken = await AsyncStorage.getItem(AUTH_TOKEN_KEY);
+        const savedUser = await AsyncStorage.getItem(AUTH_USER_KEY);
+
+        if (savedToken && savedUser) {
+          // Verify the token is still valid by fetching the profile
+          try {
+            const profile = await api.getProfile(savedToken);
+            if (profile.user) {
+              setToken(savedToken);
+              setUser(profile.user);
+              setScreen({ name: 'explore' });
+            } else {
+              // Token expired or invalid — clear storage
+              await AsyncStorage.multiRemove([AUTH_TOKEN_KEY, AUTH_USER_KEY]);
+            }
+          } catch {
+            // Network error — use cached user data anyway
+            setToken(savedToken);
+            setUser(JSON.parse(savedUser));
+            setScreen({ name: 'explore' });
+          }
+        }
+      } catch (err) {
+        console.error('Failed to restore session:', err);
+      } finally {
+        setInitializing(false);
+      }
+    };
+
+    restoreSession();
+  }, []);
+
+  // Update push token when logged in
+  const { expoPushToken } = usePushNotifications();
+  useEffect(() => {
+    if (token && expoPushToken) {
+      api.updatePushToken(token, expoPushToken).catch((err) => {
+        console.error('Failed to update push token:', err);
+      });
+    }
+  }, [token, expoPushToken]);
 
   const navigate = (nextScreen: Screen) => {
     setScreenHistory((prev) => [...prev, screen]);
@@ -41,19 +94,46 @@ export default function App() {
     });
   };
 
-  const handleAuth = (authToken: string, authUser: any) => {
+  const handleAuth = async (authToken: string, authUser: any) => {
     setToken(authToken);
     setUser(authUser);
     setScreen({ name: 'explore' });
     setScreenHistory([]);
+
+    // Persist to AsyncStorage
+    try {
+      await AsyncStorage.setItem(AUTH_TOKEN_KEY, authToken);
+      await AsyncStorage.setItem(AUTH_USER_KEY, JSON.stringify(authUser));
+    } catch (err) {
+      console.error('Failed to save auth:', err);
+    }
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     setToken(null);
     setUser(null);
     setScreen({ name: 'login' });
     setScreenHistory([]);
+
+    // Clear persisted session
+    try {
+      await AsyncStorage.multiRemove([AUTH_TOKEN_KEY, AUTH_USER_KEY]);
+    } catch (err) {
+      console.error('Failed to clear auth:', err);
+    }
   };
+
+  // --- Splash / Loading ---
+  if (initializing) {
+    return (
+      <View style={splashStyles.container}>
+        <StatusBar style="light" />
+        <Text style={splashStyles.logo}>⚡</Text>
+        <Text style={splashStyles.title}>GLITCH</Text>
+        <ActivityIndicator size="small" color="#a855f7" style={{ marginTop: 24 }} />
+      </View>
+    );
+  }
 
   // --- Auth Screens ---
   if (!token) {
@@ -178,6 +258,25 @@ export default function App() {
     </>
   );
 }
+
+const splashStyles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#0a0a0f',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  logo: {
+    fontSize: 64,
+    marginBottom: 12,
+  },
+  title: {
+    fontSize: 32,
+    fontWeight: '900',
+    color: '#a855f7',
+    letterSpacing: 4,
+  },
+});
 
 const tabStyles = StyleSheet.create({
   container: {

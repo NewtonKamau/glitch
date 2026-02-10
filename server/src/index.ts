@@ -7,6 +7,7 @@ import path from 'path';
 import { checkConnection } from './db';
 import { runMigrations } from './models/migrations';
 import { verifyToken } from './middleware/auth';
+import { startQuestExpiryJob, startStaleQuestCleanupJob } from './jobs/questExpiry';
 
 // Routes
 import authRoutes from './routes/auth';
@@ -102,6 +103,10 @@ const startServer = async () => {
   if (dbConnected) {
     try {
       await runMigrations();
+
+      // Start background jobs
+      startQuestExpiryJob();
+      startStaleQuestCleanupJob();
     } catch (err) {
       console.error('Migration failed, but server will start:', err);
     }

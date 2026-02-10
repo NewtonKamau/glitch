@@ -28,6 +28,18 @@ export const api = {
     return res.json();
   },
 
+  updatePushToken: async (token: string, pushToken: string) => {
+    const res = await fetch(`${API_URL}/auth/push-token`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ pushToken }),
+    });
+    return res.json();
+  },
+
   // Quests
   createQuest: async (token: string, data: {
     title: string;
@@ -48,11 +60,12 @@ export const api = {
     return res.json();
   },
 
-  getNearbyQuests: async (token: string, lat: number, lng: number, radius = 5) => {
-    const res = await fetch(
-      `${API_URL}/quests/nearby?lat=${lat}&lng=${lng}&radius=${radius}`,
-      { headers: { Authorization: `Bearer ${token}` } }
-    );
+  getNearbyQuests: async (token: string, lat: number, lng: number, radius = 5, category = 'all') => {
+    let url = `${API_URL}/quests/nearby?lat=${lat}&lng=${lng}&radius=${radius}`;
+    if (category && category !== 'all') {
+      url += `&category=${category}`;
+    }
+    const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
     return res.json();
   },
 

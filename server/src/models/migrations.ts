@@ -21,6 +21,7 @@ export const runMigrations = async () => {
         bio TEXT,
         is_premium BOOLEAN DEFAULT FALSE,
         quest_count INTEGER DEFAULT 0,
+        push_token VARCHAR(255),
         created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
         updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
       );

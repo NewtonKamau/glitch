@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   RefreshControl,
   ActivityIndicator,
+  ScrollView,
 } from 'react-native';
 import { api } from '../services/api';
 import { useLocation } from '../hooks/useLocation';
@@ -34,7 +35,19 @@ export default function MapScreen({ token, onQuestSelect, onCreateQuest }: MapSc
   const [quests, setQuests] = useState<QuestItem[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [selectedCategory, setSelectedCategory] = useState('all');
   const { location, loading: locationLoading, error: locationError, refreshLocation } = useLocation(true);
+
+  const CATEGORIES = [
+    { key: 'all', label: 'All' },
+    { key: 'general', label: '✨ General' },
+    { key: 'foodie', label: '🍕 Foodie' },
+    { key: 'art', label: '🎨 Art' },
+    { key: 'music', label: '🎵 Music' },
+    { key: 'chill', label: '😎 Chill' },
+    { key: 'adventure', label: '🏔️ Adventure' },
+    { key: 'sport', label: '⚽ Sport' },
+  ];
 
   const fetchQuests = async () => {
     if (!location) return;
@@ -43,7 +56,8 @@ export default function MapScreen({ token, onQuestSelect, onCreateQuest }: MapSc
         token,
         location.latitude,
         location.longitude,
-        50
+        50,
+        selectedCategory // Pass selected category
       );
       if (result.quests) {
         setQuests(result.quests);
@@ -58,9 +72,10 @@ export default function MapScreen({ token, onQuestSelect, onCreateQuest }: MapSc
 
   useEffect(() => {
     if (location) {
+      setLoading(true); // Show loading when category changes
       fetchQuests();
     }
-  }, [location]);
+  }, [location, selectedCategory]);
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -138,6 +153,31 @@ export default function MapScreen({ token, onQuestSelect, onCreateQuest }: MapSc
         </TouchableOpacity>
       </View>
 
+      {/* Category Filter */}
+      <View style={styles.filterContainer}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterContent}>
+          {CATEGORIES.map((cat) => (
+            <TouchableOpacity
+              key={cat.key}
+              style={[
+                styles.filterChip,
+                selectedCategory === cat.key && styles.filterChipActive,
+              ]}
+              onPress={() => setSelectedCategory(cat.key)}
+            >
+              <Text
+                style={[
+                  styles.filterText,
+                  selectedCategory === cat.key && styles.filterTextActive,
+                ]}
+              >
+                {cat.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
+
       {locationLoading || loading ? (
         <View style={styles.emptyContainer}>
           <ActivityIndicator size="large" color="#a855f7" />
@@ -186,8 +226,36 @@ const styles = StyleSheet.create({
     paddingTop: 60,
     paddingBottom: 16,
     backgroundColor: '#0a0a0f',
+  },
+  filterContainer: {
+    backgroundColor: '#0a0a0f',
+    paddingBottom: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#1a1a2e',
+  },
+  filterContent: {
+    paddingHorizontal: 20,
+    gap: 8,
+  },
+  filterChip: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: '#1a1a2e',
+    borderWidth: 1,
+    borderColor: '#2a2a3e',
+  },
+  filterChipActive: {
+    backgroundColor: '#a855f7',
+    borderColor: '#a855f7',
+  },
+  filterText: {
+    color: '#888',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  filterTextActive: {
+    color: '#fff',
   },
   headerTitle: {
     fontSize: 28,
