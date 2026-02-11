@@ -27,6 +27,12 @@ export const runMigrations = async () => {
       );
     `);
 
+    // Add XP columns for gamification
+    await client.query(`
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS xp INTEGER DEFAULT 0;
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS level INTEGER DEFAULT 1;
+    `);
+
     // Quests table
     await client.query(`
       CREATE TABLE IF NOT EXISTS quests (

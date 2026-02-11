@@ -1,6 +1,7 @@
 import { Response } from 'express';
 import pool from '../config/database';
 import { AuthRequest } from '../middleware/auth';
+import { awardXP } from '../utils/gamification';
 
 const QUEST_EXPIRY_HOURS = 3;
 
@@ -38,8 +39,17 @@ export const createQuest = async (req: AuthRequest, res: Response) => {
       [title, description || '', req.userId, latitude, longitude, videoUrl || null, category || 'general', maxParticipants || 10, expiresAt]
     );
 
+    // Auto-join creator to participants
+    await pool.query(
+      'INSERT INTO quest_participants (quest_id, user_id) VALUES ($1, $2)',
+      [result.rows[0].id, req.userId]
+    );
+
     // Increment user's quest count
     await pool.query('UPDATE users SET quest_count = quest_count + 1 WHERE id = $1', [req.userId]);
+
+    // Award XP
+    await awardXP(req.userId!, 50);
 
     return res.status(201).json({ quest: result.rows[0] });
   } catch (err) {
@@ -177,6 +187,9 @@ export const joinQuest = async (req: AuthRequest, res: Response) => {
       'INSERT INTO quest_participants (quest_id, user_id) VALUES ($1, $2)',
       [id, req.userId]
     );
+
+    // Award XP
+    await awardXP(req.userId!, 10);
 
     return res.status(201).json({ message: 'Successfully joined quest' });
   } catch (err) {

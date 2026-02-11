@@ -1,6 +1,7 @@
 import { Response } from 'express';
 import pool from '../config/database';
 import { AuthRequest } from '../middleware/auth';
+import { awardXP } from '../utils/gamification';
 
 // Add a review
 export const addReview = async (req: AuthRequest, res: Response) => {
@@ -28,6 +29,10 @@ export const addReview = async (req: AuthRequest, res: Response) => {
        RETURNING *`,
       [id, req.userId, score, comment]
     );
+
+    // Award XP (5 XP per review)
+    // We assert req.userId! because AuthRequest ensures it's set
+    await awardXP(req.userId!, 5);
 
     return res.status(201).json({ review: result.rows[0] });
   } catch (err) {

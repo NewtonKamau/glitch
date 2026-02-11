@@ -81,6 +81,23 @@ export default function ProfileScreen({ token, user, onLogout }: ProfileScreenPr
               <Text style={styles.premiumText}>⚡ GLITCH+</Text>
             </View>
           )}
+
+          <View style={styles.levelContainer}>
+            <View style={styles.levelBadge}>
+              <Text style={styles.levelBadgeText}>Lvl {profile?.level || 1}</Text>
+            </View>
+            <View style={styles.xpBarBg}>
+              <View
+                style={[
+                  styles.xpBarFill,
+                  { width: `${((profile?.xp || 0) % 100)}%` }
+                ]}
+              />
+            </View>
+            <Text style={styles.xpText}>
+              {(profile?.xp || 0) % 100} / 100 XP
+            </Text>
+          </View>
         </View>
 
         {/* Stats */}
@@ -219,6 +236,41 @@ const styles = StyleSheet.create({
   premiumText: {
     color: '#a855f7',
     fontWeight: '700',
+    fontSize: 12,
+  },
+  levelContainer: {
+    marginTop: 16,
+    alignItems: 'center',
+    width: '100%',
+    paddingHorizontal: 40,
+  },
+  levelBadge: {
+    backgroundColor: '#333',
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginBottom: 8,
+  },
+  levelBadgeText: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: 14,
+  },
+  xpBarBg: {
+    width: '100%',
+    height: 8,
+    backgroundColor: '#333',
+    borderRadius: 4,
+    marginBottom: 4,
+    overflow: 'hidden',
+  },
+  xpBarFill: {
+    height: '100%',
+    backgroundColor: '#a855f7',
+    borderRadius: 4,
+  },
+  xpText: {
+    color: '#888',
     fontSize: 12,
   },
   statsRow: {

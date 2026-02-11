@@ -28,7 +28,7 @@ export const register = async (req: Request, res: Response) => {
     const result = await pool.query(
       `INSERT INTO users (username, email, password_hash)
        VALUES ($1, $2, $3)
-       RETURNING id, username, email, avatar_url, is_premium, created_at`,
+       RETURNING id, username, email, avatar_url, is_premium, xp, level, created_at`,
       [username, email, passwordHash]
     );
 
@@ -51,7 +51,7 @@ export const login = async (req: Request, res: Response) => {
 
   try {
     const result = await pool.query(
-      'SELECT id, username, email, password_hash, avatar_url, is_premium FROM users WHERE email = $1',
+      'SELECT id, username, email, password_hash, avatar_url, is_premium, xp, level FROM users WHERE email = $1',
       [email]
     );
 
@@ -79,7 +79,7 @@ export const login = async (req: Request, res: Response) => {
 export const getProfile = async (req: AuthRequest, res: Response) => {
   try {
     const result = await pool.query(
-      `SELECT u.id, u.username, u.email, u.avatar_url, u.bio, u.is_premium, u.quest_count, u.created_at,
+      `SELECT u.id, u.username, u.email, u.avatar_url, u.bio, u.is_premium, u.quest_count, u.created_at, u.xp, u.level,
               (SELECT COUNT(*) FROM follows WHERE following_id = u.id) as followers_count,
               (SELECT COUNT(*) FROM follows WHERE follower_id = u.id) as following_count
        FROM users u
