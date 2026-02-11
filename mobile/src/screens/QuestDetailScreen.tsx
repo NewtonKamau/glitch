@@ -7,6 +7,7 @@ import {
   ScrollView,
   Alert,
   ActivityIndicator,
+  TextInput,
 } from 'react-native';
 import { Video, ResizeMode } from 'expo-av';
 import { api, BASE_URL } from '../services/api';
@@ -32,6 +33,13 @@ export default function QuestDetailScreen({
   const [joining, setJoining] = useState(false);
   const [isFollowing, setIsFollowing] = useState(false);
   const [followLoading, setFollowLoading] = useState(false);
+
+  // Reviews State
+  const [reviews, setReviews] = useState<any[]>([]);
+  const [showReviewForm, setShowReviewForm] = useState(false);
+  const [reviewScore, setReviewScore] = useState(5);
+  const [reviewComment, setReviewComment] = useState('');
+  const [submittingReview, setSubmittingReview] = useState(false);
 
   const fetchQuest = async () => {
     try {
@@ -59,11 +67,37 @@ export default function QuestDetailScreen({
         }
       });
     }
+
+    // Fetch reviews
+    api.getReviews(token, questId).then((res) => {
+      if (res.reviews) setReviews(res.reviews);
+    });
   }, [quest]);
 
   const isCreator = quest?.creator_id === userId;
   const isParticipant = participants.some((p) => p.id === userId);
   const hasAccess = isCreator || isParticipant;
+
+  const handleSubmitReview = async () => {
+    if (submittingReview) return;
+    setSubmittingReview(true);
+    try {
+      const res = await api.addReview(token, questId, reviewScore, reviewComment);
+      if (res.error) {
+        Alert.alert('Error', res.error);
+      } else {
+        setShowReviewForm(false);
+        setReviewComment('');
+        // Refresh reviews and quest stats
+        api.getReviews(token, questId).then((r) => r.reviews && setReviews(r.reviews));
+        fetchQuest();
+      }
+    } catch (err) {
+      Alert.alert('Error', 'Failed to submit review');
+    } finally {
+      setSubmittingReview(false);
+    }
+  };
 
   const handleJoin = async () => {
     setJoining(true);
@@ -136,6 +170,10 @@ export default function QuestDetailScreen({
     return map[category] || '✨';
   };
 
+  const renderStars = (score: number) => {
+    return '⭐'.repeat(Math.round(score));
+  };
+
   if (loading) {
     return (
       <View style={[styles.container, styles.centered]}>
@@ -184,6 +222,14 @@ export default function QuestDetailScreen({
         <View style={styles.heroSection}>
           <Text style={styles.heroEmoji}>{getCategoryEmoji(quest.category)}</Text>
           <Text style={styles.questTitle}>{quest.title}</Text>
+
+          {quest.rating_avg > 0 && (
+            <View style={styles.ratingBadge}>
+              <Text style={styles.ratingText}>
+                {parseFloat(quest.rating_avg).toFixed(1)} ⭐ ({quest.review_count})
+              </Text>
+            </View>
+          )}
 
           <View style={styles.creatorRow}>
             <Text style={styles.questCreator}>Created by @{quest.creator_username}</Text>
@@ -234,6 +280,72 @@ export default function QuestDetailScreen({
                     <Text style={styles.creatorTagText}>Creator</Text>
                   </View>
                 )}
+              </View>
+            ))
+          )}
+        </View>
+
+        {/* Reviews Section */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeaderRow}>
+            <Text style={styles.sectionTitle}>Reviews ({reviews.length})</Text>
+            {isParticipant && !isCreator && !showReviewForm && (
+              <TouchableOpacity onPress={() => setShowReviewForm(true)}>
+                <Text style={styles.writeReviewLink}>Write a Review</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+
+          {showReviewForm && (
+            <View style={styles.reviewForm}>
+              <Text style={styles.formLabel}>Rate this Quest:</Text>
+              <View style={styles.starRow}>
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <TouchableOpacity key={star} onPress={() => setReviewScore(star)}>
+                    <Text style={[styles.starInput, reviewScore >= star && styles.starActive]}>★</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              <TextInput
+                style={styles.reviewInput}
+                placeholder="Share your experience..."
+                placeholderTextColor="#666"
+                value={reviewComment}
+                onChangeText={setReviewComment}
+                multiline
+              />
+              <View style={styles.formActions}>
+                <TouchableOpacity
+                  style={styles.cancelButton}
+                  onPress={() => setShowReviewForm(false)}
+                >
+                  <Text style={styles.cancelButtonText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.submitButton}
+                  onPress={handleSubmitReview}
+                  disabled={submittingReview}
+                >
+                  {submittingReview ? (
+                    <ActivityIndicator color="#fff" size="small" />
+                  ) : (
+                    <Text style={styles.submitButtonText}>Post Review</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
+
+          {reviews.length === 0 ? (
+            <Text style={styles.noReviews}>No reviews yet.</Text>
+          ) : (
+            reviews.map((review) => (
+              <View key={review.id} style={styles.reviewCard}>
+                <View style={styles.reviewHeader}>
+                  <Text style={styles.reviewUser}>@{review.username}</Text>
+                  <Text style={styles.reviewStars}>{renderStars(review.score)}</Text>
+                </View>
+                {review.comment ? <Text style={styles.reviewText}>{review.comment}</Text> : null}
               </View>
             ))
           )}
@@ -521,5 +633,119 @@ const styles = StyleSheet.create({
     color: '#a855f7',
     fontSize: 14,
     fontWeight: '600',
+  },
+  ratingBadge: {
+    marginTop: 8,
+    backgroundColor: '#2a1a2e',
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#a855f7',
+  },
+  ratingText: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: 12,
+  },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  writeReviewLink: {
+    color: '#a855f7',
+    fontWeight: '600',
+    fontSize: 14,
+  },
+  reviewForm: {
+    backgroundColor: '#1a1a2e',
+    padding: 16,
+    borderRadius: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#a855f7',
+  },
+  formLabel: {
+    color: '#fff',
+    marginBottom: 8,
+    fontWeight: '600',
+  },
+  starRow: {
+    flexDirection: 'row',
+    marginBottom: 12,
+    gap: 8,
+  },
+  starInput: {
+    fontSize: 28,
+    color: '#444',
+  },
+  starActive: {
+    color: '#FFD700',
+  },
+  reviewInput: {
+    backgroundColor: '#0a0a0f',
+    color: '#fff',
+    padding: 12,
+    borderRadius: 8,
+    minHeight: 80,
+    textAlignVertical: 'top',
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#333',
+  },
+  formActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 12,
+  },
+  cancelButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+  },
+  cancelButtonText: {
+    color: '#888',
+    fontWeight: '600',
+  },
+  submitButton: {
+    backgroundColor: '#a855f7',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+  },
+  submitButtonText: {
+    color: '#fff',
+    fontWeight: '700',
+  },
+  noReviews: {
+    color: '#666',
+    fontStyle: 'italic',
+  },
+  reviewCard: {
+    backgroundColor: '#1a1a2e',
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#2a2a3e',
+  },
+  reviewHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 6,
+  },
+  reviewUser: {
+    color: '#a855f7',
+    fontWeight: '600',
+    fontSize: 13,
+  },
+  reviewStars: {
+    fontSize: 12,
+  },
+  reviewText: {
+    color: '#ddd',
+    fontSize: 14,
+    lineHeight: 20,
   },
 });

@@ -107,7 +107,9 @@ export const getQuestById = async (req: AuthRequest, res: Response) => {
   try {
     const result = await pool.query(
       `SELECT q.*, u.username as creator_username, u.avatar_url as creator_avatar,
-              (SELECT COUNT(*) FROM quest_participants WHERE quest_id = q.id) as participant_count
+              (SELECT COUNT(*) FROM quest_participants WHERE quest_id = q.id) as participant_count,
+              (SELECT COALESCE(AVG(score), 0) FROM quest_reviews WHERE quest_id = q.id) as rating_avg,
+              (SELECT COUNT(*) FROM quest_reviews WHERE quest_id = q.id) as review_count
        FROM quests q
        JOIN users u ON q.creator_id = u.id
        WHERE q.id = $1`,

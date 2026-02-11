@@ -116,6 +116,25 @@ export const api = {
     return res.json();
   },
 
+  addReview: async (token: string, questId: string, score: number, comment: string) => {
+    const res = await fetch(`${API_URL}/quests/${questId}/reviews`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ score, comment }),
+    });
+    return res.json();
+  },
+
+  getReviews: async (token: string, questId: string) => {
+    const res = await fetch(`${API_URL}/quests/${questId}/reviews`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return res.json();
+  },
+
   // Chat
   getMessages: async (token: string, questId: string) => {
     const res = await fetch(`${API_URL}/chat/${questId}/messages`, {

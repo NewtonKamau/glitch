@@ -77,6 +77,19 @@ export const runMigrations = async () => {
       );
     `);
 
+    // Quest reviews table
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS quest_reviews (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        quest_id UUID NOT NULL REFERENCES quests(id) ON DELETE CASCADE,
+        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        score INTEGER NOT NULL CHECK (score >= 1 AND score <= 5),
+        comment TEXT,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+        UNIQUE(quest_id, user_id)
+      );
+    `);
+
     // Create indexes for performance
     await client.query(`
       CREATE INDEX IF NOT EXISTS idx_quests_location ON quests(latitude, longitude);
@@ -87,6 +100,7 @@ export const runMigrations = async () => {
       CREATE INDEX IF NOT EXISTS idx_chat_messages_quest ON chat_messages(quest_id);
       CREATE INDEX IF NOT EXISTS idx_follows_follower ON follows(follower_id);
       CREATE INDEX IF NOT EXISTS idx_follows_following ON follows(following_id);
+      CREATE INDEX IF NOT EXISTS idx_quest_reviews_quest ON quest_reviews(quest_id);
     `);
 
     await client.query('COMMIT');
