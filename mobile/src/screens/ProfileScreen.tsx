@@ -87,12 +87,17 @@ export default function ProfileScreen({ token, user, onLogout }: ProfileScreenPr
         <View style={styles.statsRow}>
           <View style={styles.statItem}>
             <Text style={styles.statNumber}>{profile?.quest_count || 0}</Text>
-            <Text style={styles.statLabel}>Quests Created</Text>
+            <Text style={styles.statLabel}>Quests</Text>
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
-            <Text style={styles.statNumber}>{memberSince}</Text>
-            <Text style={styles.statLabel}>Member Since</Text>
+            <Text style={styles.statNumber}>{profile?.followers_count || 0}</Text>
+            <Text style={styles.statLabel}>Followers</Text>
+          </View>
+          <View style={styles.statDivider} />
+          <View style={styles.statItem}>
+            <Text style={styles.statNumber}>{profile?.following_count || 0}</Text>
+            <Text style={styles.statLabel}>Following</Text>
           </View>
         </View>
 

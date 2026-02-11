@@ -30,6 +30,8 @@ export default function QuestDetailScreen({
   const [participants, setParticipants] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [joining, setJoining] = useState(false);
+  const [isFollowing, setIsFollowing] = useState(false);
+  const [followLoading, setFollowLoading] = useState(false);
 
   const fetchQuest = async () => {
     try {
@@ -49,6 +51,16 @@ export default function QuestDetailScreen({
     fetchQuest();
   }, [questId]);
 
+  useEffect(() => {
+    if (quest && quest.creator_id !== userId) {
+      api.getUserProfile(token, quest.creator_id).then((res) => {
+        if (res.user) {
+          setIsFollowing(res.user.is_following);
+        }
+      });
+    }
+  }, [quest]);
+
   const isCreator = quest?.creator_id === userId;
   const isParticipant = participants.some((p) => p.id === userId);
   const hasAccess = isCreator || isParticipant;
@@ -67,6 +79,25 @@ export default function QuestDetailScreen({
       Alert.alert('Error', 'Could not join quest');
     } finally {
       setJoining(false);
+    }
+  };
+
+  const handleFollow = async () => {
+    if (followLoading) return;
+    setFollowLoading(true);
+    const newStatus = !isFollowing;
+    try {
+      if (newStatus) {
+        await api.followUser(token, quest.creator_id);
+      } else {
+        await api.unfollowUser(token, quest.creator_id);
+      }
+      setIsFollowing(newStatus);
+    } catch (err) {
+      console.error('Follow error:', err);
+      Alert.alert('Error', 'Could not update follow status');
+    } finally {
+      setFollowLoading(false);
     }
   };
 
@@ -153,7 +184,22 @@ export default function QuestDetailScreen({
         <View style={styles.heroSection}>
           <Text style={styles.heroEmoji}>{getCategoryEmoji(quest.category)}</Text>
           <Text style={styles.questTitle}>{quest.title}</Text>
-          <Text style={styles.questCreator}>Created by @{quest.creator_username}</Text>
+
+          <View style={styles.creatorRow}>
+            <Text style={styles.questCreator}>Created by @{quest.creator_username}</Text>
+            {!isCreator && (
+              <TouchableOpacity
+                style={[styles.followButton, isFollowing && styles.followingButton]}
+                onPress={handleFollow}
+                disabled={followLoading}
+              >
+                <Text style={[styles.followButtonText, isFollowing && styles.followingButtonText]}>
+                  {isFollowing ? 'Following' : 'Follow'}
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
+
           <View style={styles.timeBadge}>
             <Text style={styles.timeText}>⏱ {getTimeRemaining(quest.expires_at)}</Text>
           </View>
@@ -300,10 +346,34 @@ const styles = StyleSheet.create({
     color: '#fff',
     textAlign: 'center',
   },
+  creatorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+    gap: 8,
+  },
   questCreator: {
     fontSize: 14,
     color: '#888',
-    marginTop: 8,
+  },
+  followButton: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    backgroundColor: '#a855f7',
+  },
+  followingButton: {
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: '#666',
+  },
+  followButtonText: {
+    color: '#fff',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  followingButtonText: {
+    color: '#aaa',
   },
   timeBadge: {
     backgroundColor: '#2a1a3e',

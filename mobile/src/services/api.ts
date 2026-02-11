@@ -40,6 +40,30 @@ export const api = {
     return res.json();
   },
 
+  // Users & Social
+  getUserProfile: async (token: string, userId: string) => {
+    const res = await fetch(`${API_URL}/users/${userId}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return res.json();
+  },
+
+  followUser: async (token: string, userId: string) => {
+    const res = await fetch(`${API_URL}/users/${userId}/follow`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return res.json();
+  },
+
+  unfollowUser: async (token: string, userId: string) => {
+    const res = await fetch(`${API_URL}/users/${userId}/follow`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return res.json();
+  },
+
   // Quests
   createQuest: async (token: string, data: {
     title: string;

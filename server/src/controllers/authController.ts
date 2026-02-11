@@ -79,7 +79,11 @@ export const login = async (req: Request, res: Response) => {
 export const getProfile = async (req: AuthRequest, res: Response) => {
   try {
     const result = await pool.query(
-      'SELECT id, username, email, avatar_url, bio, is_premium, quest_count, created_at FROM users WHERE id = $1',
+      `SELECT u.id, u.username, u.email, u.avatar_url, u.bio, u.is_premium, u.quest_count, u.created_at,
+              (SELECT COUNT(*) FROM follows WHERE following_id = u.id) as followers_count,
+              (SELECT COUNT(*) FROM follows WHERE follower_id = u.id) as following_count
+       FROM users u
+       WHERE u.id = $1`,
       [req.userId]
     );
 

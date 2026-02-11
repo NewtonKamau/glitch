@@ -67,6 +67,16 @@ export const runMigrations = async () => {
       );
     `);
 
+    // Follows table
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS follows (
+        follower_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        following_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+        PRIMARY KEY (follower_id, following_id)
+      );
+    `);
+
     // Create indexes for performance
     await client.query(`
       CREATE INDEX IF NOT EXISTS idx_quests_location ON quests(latitude, longitude);
@@ -75,6 +85,8 @@ export const runMigrations = async () => {
       CREATE INDEX IF NOT EXISTS idx_quest_participants_quest ON quest_participants(quest_id);
       CREATE INDEX IF NOT EXISTS idx_quest_participants_user ON quest_participants(user_id);
       CREATE INDEX IF NOT EXISTS idx_chat_messages_quest ON chat_messages(quest_id);
+      CREATE INDEX IF NOT EXISTS idx_follows_follower ON follows(follower_id);
+      CREATE INDEX IF NOT EXISTS idx_follows_following ON follows(following_id);
     `);
 
     await client.query('COMMIT');

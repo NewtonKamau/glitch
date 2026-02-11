@@ -14,6 +14,7 @@ import authRoutes from './routes/auth';
 import questRoutes from './routes/quests';
 import chatRoutes from './routes/chat';
 import uploadRoutes from './routes/upload';
+import userRoutes from './routes/user';
 
 dotenv.config();
 
@@ -43,6 +44,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/quests', questRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/upload', uploadRoutes);
+app.use('/api/users', userRoutes);
 
 // Socket.IO real-time events
 io.use((socket, next) => {
