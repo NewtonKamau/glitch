@@ -40,9 +40,84 @@ export default function ExploreScreen({ token, onQuestSelect, onCreateQuest }: M
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState('all');
-  const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
+  const [viewMode, setViewMode] = useState<'list' | 'map'>('map');
   const { location, loading: locationLoading, error: locationError } = useLocation(true);
   const mapRef = useRef<MapView>(null);
+  const [searchCoords, setSearchCoords] = useState<{latitude: number, longitude: number} | null>(null);
+  const [showSearchButton, setShowSearchButton] = useState(false);
+  const [currentRegion, setCurrentRegion] = useState<Region | null>(null);
+
+  // Dark Map Style
+  const mapStyle = [
+    { elementType: 'geometry', stylers: [{ color: '#242f3e' }] },
+    { elementType: 'labels.text.stroke', stylers: [{ color: '#242f3e' }] },
+    { elementType: 'labels.text.fill', stylers: [{ color: '#746855' }] },
+    {
+      featureType: 'administrative.locality',
+      elementType: 'labels.text.fill',
+      stylers: [{ color: '#d59563' }],
+    },
+    {
+      featureType: 'poi',
+      elementType: 'labels.text.fill',
+      stylers: [{ color: '#d59563' }],
+    },
+    {
+      featureType: 'poi.park',
+      elementType: 'geometry',
+      stylers: [{ color: '#263c3f' }],
+    },
+    {
+      featureType: 'poi.park',
+      elementType: 'labels.text.fill',
+      stylers: [{ color: '#6b9a76' }],
+    },
+    {
+      featureType: 'road',
+      elementType: 'geometry',
+      stylers: [{ color: '#38414e' }],
+    },
+    {
+      featureType: 'road',
+      elementType: 'geometry.stroke',
+      stylers: [{ color: '#212a37' }],
+    },
+    {
+      featureType: 'road',
+      elementType: 'labels.text.fill',
+      stylers: [{ color: '#9ca5b3' }],
+    },
+    {
+      featureType: 'road.highway',
+      elementType: 'geometry',
+      stylers: [{ color: '#746855' }],
+    },
+    {
+      featureType: 'road.highway',
+      elementType: 'geometry.stroke',
+      stylers: [{ color: '#1f2835' }],
+    },
+    {
+      featureType: 'road.highway',
+      elementType: 'labels.text.fill',
+      stylers: [{ color: '#f3d19c' }],
+    },
+    {
+      featureType: 'water',
+      elementType: 'geometry',
+      stylers: [{ color: '#17263c' }],
+    },
+    {
+      featureType: 'water',
+      elementType: 'labels.text.fill',
+      stylers: [{ color: '#515c6d' }],
+    },
+    {
+      featureType: 'water',
+      elementType: 'labels.text.stroke',
+      stylers: [{ color: '#17263c' }],
+    },
+  ];
 
   const CATEGORIES = [
     { key: 'all', label: 'All' },
@@ -55,45 +130,74 @@ export default function ExploreScreen({ token, onQuestSelect, onCreateQuest }: M
     { key: 'sport', label: '⚽ Sport' },
   ];
 
-  const fetchQuests = async () => {
-    if (!location) return;
+  const fetchQuests = async (lat?: number, lng?: number) => {
+    const targetLat = lat || searchCoords?.latitude || location?.latitude;
+    const targetLng = lng || searchCoords?.longitude || location?.longitude;
+
+    if (!targetLat || !targetLng) return;
+
     try {
       const result = await api.getNearbyQuests(
         token,
-        location.latitude,
-        location.longitude,
+        targetLat,
+        targetLng,
         50,
         selectedCategory
       );
       if (result.quests) {
         setQuests(result.quests);
+        setSearchCoords({ latitude: targetLat, longitude: targetLng });
       }
     } catch (err) {
       console.error('Failed to fetch quests:', err);
     } finally {
       setLoading(false);
       setRefreshing(false);
+      setShowSearchButton(false);
     }
   };
 
+  // Initialize when location is found
   useEffect(() => {
-    if (location) {
+    if (location && !searchCoords) {
+      setSearchCoords(location);
       setLoading(true);
+      fetchQuests(location.latitude, location.longitude);
+    }
+  }, [location]);
+
+  // Refetch when category changes
+  useEffect(() => {
+    if (searchCoords) {
       fetchQuests();
     }
-  }, [location, selectedCategory]);
+  }, [selectedCategory]);
 
-  // Center map when location is found or view mode changes to map
+  const handleRegionChange = (region: Region) => {
+    setCurrentRegion(region);
+    // Show search button if moved significantly (e.g., > 1km)
+    // For simplicity, just show it if user interacted
+    if (!loading) setShowSearchButton(true);
+  };
+
+  const handeSearchArea = () => {
+    if (currentRegion) {
+      setLoading(true);
+      fetchQuests(currentRegion.latitude, currentRegion.longitude);
+    }
+  };
+
+  // Center map when view mode changes to map
   useEffect(() => {
-    if (viewMode === 'map' && location && mapRef.current) {
+    if (viewMode === 'map' && searchCoords && mapRef.current) {
       mapRef.current.animateToRegion({
-        latitude: location.latitude,
-        longitude: location.longitude,
+        latitude: searchCoords.latitude,
+        longitude: searchCoords.longitude,
         latitudeDelta: 0.05,
         longitudeDelta: 0.05,
       }, 1000);
     }
-  }, [viewMode, location]);
+  }, [viewMode]);
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -234,19 +338,21 @@ export default function ExploreScreen({ token, onQuestSelect, onCreateQuest }: M
         )
       ) : (
         <View style={styles.mapContainer}>
-          {location && (
+          {searchCoords && (
             <MapView
               ref={mapRef}
               style={styles.map}
               provider={PROVIDER_DEFAULT}
               initialRegion={{
-                latitude: location.latitude,
-                longitude: location.longitude,
+                latitude: searchCoords.latitude,
+                longitude: searchCoords.longitude,
                 latitudeDelta: 0.05,
                 longitudeDelta: 0.05,
               }}
+              onRegionChangeComplete={handleRegionChange}
               showsUserLocation={true}
               userInterfaceStyle="dark"
+              customMapStyle={mapStyle}
             >
               {quests.map((quest) => (
                 <Marker
@@ -270,6 +376,11 @@ export default function ExploreScreen({ token, onQuestSelect, onCreateQuest }: M
                 </Marker>
               ))}
             </MapView>
+          )}
+          {showSearchButton && (
+            <TouchableOpacity style={styles.searchAreaButton} onPress={handeSearchArea}>
+              <Text style={styles.searchAreaText}>Search this area</Text>
+            </TouchableOpacity>
           )}
         </View>
       )}
@@ -502,5 +613,25 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#a855f7',
     textAlign: 'center',
+  },
+  searchAreaButton: {
+    position: 'absolute',
+    top: 20,
+    alignSelf: 'center',
+    backgroundColor: '#fff',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 5,
+    zIndex: 100,
+  },
+  searchAreaText: {
+    color: '#a855f7',
+    fontWeight: '700',
+    fontSize: 14,
   },
 });
