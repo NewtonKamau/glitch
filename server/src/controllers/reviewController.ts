@@ -2,6 +2,7 @@ import { Response } from 'express';
 import pool from '../config/database';
 import { AuthRequest } from '../middleware/auth';
 import { awardXP } from '../utils/gamification';
+import { sendPushNotification } from '../services/push';
 
 // Add a review
 export const addReview = async (req: AuthRequest, res: Response) => {
@@ -23,6 +24,10 @@ export const addReview = async (req: AuthRequest, res: Response) => {
       return res.status(409).json({ error: 'You have already reviewed this quest' });
     }
 
+    // Get quest details for notification
+    const questResult = await pool.query('SELECT creator_id, title FROM quests WHERE id = $1', [id]);
+    const quest = questResult.rows[0];
+
     const result = await pool.query(
       `INSERT INTO quest_reviews (quest_id, user_id, score, comment)
        VALUES ($1, $2, $3, $4)
@@ -33,6 +38,19 @@ export const addReview = async (req: AuthRequest, res: Response) => {
     // Award XP (5 XP per review)
     // We assert req.userId! because AuthRequest ensures it's set
     await awardXP(req.userId!, 5);
+
+    // Notify Quest Creator
+    if (quest && quest.creator_id !== req.userId) {
+      const reviewer = await pool.query('SELECT username FROM users WHERE id = $1', [req.userId]);
+      const username = reviewer.rows[0]?.username || 'Someone';
+
+      sendPushNotification(
+        [quest.creator_id],
+        'New Review! ⭐',
+        `${username} reviewed your quest: ${quest.title}`,
+        { type: 'quest', questId: id }
+      );
+    }
 
     return res.status(201).json({ review: result.rows[0] });
   } catch (err) {

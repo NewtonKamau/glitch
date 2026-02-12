@@ -21,6 +21,9 @@ export function usePushNotifications() {
   const [notification, setNotification] = useState<
     Notifications.Notification | undefined
   >(undefined);
+  const [notificationResponse, setNotificationResponse] = useState<
+    Notifications.NotificationResponse | undefined
+  >(undefined);
   const notificationListener = useRef<Notifications.Subscription | null>(null);
   const responseListener = useRef<Notifications.Subscription | null>(null);
 
@@ -82,7 +85,7 @@ export function usePushNotifications() {
 
     responseListener.current =
       Notifications.addNotificationResponseReceivedListener((response) => {
-        console.log(response);
+        setNotificationResponse(response);
       });
 
     return () => {
@@ -96,5 +99,6 @@ export function usePushNotifications() {
   return {
     expoPushToken,
     notification,
+    notificationResponse,
   };
 }

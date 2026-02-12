@@ -2,6 +2,7 @@ import { Response } from 'express';
 import pool from '../config/database';
 import { AuthRequest } from '../middleware/auth';
 import { awardXP } from '../utils/gamification';
+import { sendPushNotification } from '../services/push';
 
 const QUEST_EXPIRY_HOURS = 3;
 
@@ -190,6 +191,19 @@ export const joinQuest = async (req: AuthRequest, res: Response) => {
 
     // Award XP
     await awardXP(req.userId!, 10);
+
+    // Notify Quest Creator
+    if (quest.creator_id !== req.userId) {
+      const user = await pool.query('SELECT username FROM users WHERE id = $1', [req.userId]);
+      const username = user.rows[0]?.username || 'Someone';
+
+      sendPushNotification(
+        [quest.creator_id],
+        'New Participant! ⚡',
+        `${username} joined your quest: ${quest.title}`,
+        { type: 'quest', questId: id }
+      );
+    }
 
     return res.status(201).json({ message: 'Successfully joined quest' });
   } catch (err) {

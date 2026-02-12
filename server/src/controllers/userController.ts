@@ -1,6 +1,7 @@
 import { Response } from 'express';
 import pool from '../config/database';
 import { AuthRequest } from '../middleware/auth';
+import { sendPushNotification } from '../services/push';
 
 // Get public user profile with stats
 export const getUserProfile = async (req: AuthRequest, res: Response) => {
@@ -48,6 +49,19 @@ export const followUser = async (req: AuthRequest, res: Response) => {
        VALUES ($1, $2)
        ON CONFLICT DO NOTHING`,
       [req.userId, id]
+    );
+
+    // Send Push Notification
+    // Get follower username
+    const follower = await pool.query('SELECT username FROM users WHERE id = $1', [req.userId]);
+    const followerName = follower.rows[0]?.username || 'Someone';
+
+    // Don't await to avoid blocking response
+    sendPushNotification(
+      [id as string],
+      'New Follower! 👤',
+      `${followerName} started following you`,
+      { type: 'profile', userId: req.userId }
     );
 
     return res.json({ message: 'Successfully followed user' });

@@ -68,8 +68,9 @@ export default function App() {
     restoreSession();
   }, []);
 
-  // Update push token when logged in
-  const { expoPushToken } = usePushNotifications();
+  // Update push token when logged in & Handle notifications
+  const { expoPushToken, notificationResponse } = usePushNotifications();
+
   useEffect(() => {
     if (token && expoPushToken) {
       api.updatePushToken(token, expoPushToken).catch((err) => {
@@ -77,6 +78,18 @@ export default function App() {
       });
     }
   }, [token, expoPushToken]);
+
+  // Deep linking from notification
+  useEffect(() => {
+    if (notificationResponse) {
+      const data = notificationResponse.notification.request.content.data;
+      if (data?.type === 'quest' && data.questId && typeof data.questId === 'string') {
+        // Navigate to quest detail
+        setScreen({ name: 'questDetail', questId: data.questId });
+      }
+      // Future: Handle 'profile' type links
+    }
+  }, [notificationResponse]);
 
   const navigate = (nextScreen: Screen) => {
     setScreenHistory((prev) => [...prev, screen]);
